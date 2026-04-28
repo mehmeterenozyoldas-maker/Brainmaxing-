@@ -1,0 +1,7 @@
+{
+  "name": "Remix: Remix: Remix: Cognitive Router \u0026 Slime Mold AR2",
+  "description": "An AR routing tool using slime mold algorithms, integrated with a cognitive regulation AI assistant that breaks autopilot loops with 3D spatial puzzles.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

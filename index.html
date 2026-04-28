@@ -1,0 +1,961 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interactive 3D Anatomical Infographic</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+    <style>
+      :root {
+        --bg: #f5f0eb;
+        --text-primary: #2a2520;
+        --text-secondary: rgba(42,37,32,0.45);
+        --text-tertiary: rgba(42,37,32,0.35);
+        --text-faint: rgba(42,37,32,0.3);
+        --border: rgba(42,37,32,0.06);
+        --border-hover: rgba(42,37,32,0.1);
+        --card-bg: rgba(255,255,255,0.5);
+        --glass-bg: rgba(255,255,255,0.7);
+        --accent-red: #b44b46;
+        --accent-terra: #c47a5a;
+        --accent-taupe: #8a7b6b;
+        --accent-steel: #7a8a9a;
+        --accent-gold: #c9a96e;
+        --accent-earth: #9a6858;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: var(--bg);
+        color: var(--text-primary);
+        overflow: hidden;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      h1 {
+        font-size: 32px !important;
+        font-weight: 600 !important;
+        letter-spacing: -0.6px !important;
+        margin-bottom: 8px !important;
+      }
+
+      h2 {
+        font-size: 24px !important;
+        font-weight: 600 !important;
+        letter-spacing: -0.5px !important;
+        margin-bottom: 16px !important;
+      }
+
+      .subtitle {
+        font-size: 12px !important;
+        font-weight: 300 !important;
+        color: var(--text-tertiary) !important;
+        letter-spacing: 3px !important;
+        text-transform: uppercase !important;
+      }
+
+      p {
+        font-size: 13px !important;
+        font-weight: 300 !important;
+        color: var(--text-secondary) !important;
+        line-height: 1.7 !important;
+      }
+
+      button {
+        font-family: 'Inter', sans-serif;
+      }
+
+      /* Tab Navigation */
+      #tab-nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 64px;
+        z-index: 1000;
+        background: rgba(245,240,235,0.85);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .tab-btn {
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 50px;
+        padding: 8px 24px;
+        font-family: 'Inter', sans-serif;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+        position: relative;
+      }
+
+      .tab-btn:hover {
+        color: var(--text-primary);
+      }
+
+      .tab-btn.active {
+        background: rgba(42,37,32,0.06);
+        border-color: var(--border-hover);
+        color: var(--text-primary);
+      }
+
+      .tab-btn::after {
+        content: '';
+        position: absolute;
+        bottom: -12px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background-color: var(--accent-red);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      .tab-btn.active::after {
+        opacity: 1;
+      }
+
+      /* Tab Panels */
+      .tab-panel {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.4s ease;
+        padding-top: 64px; /* offset for nav */
+      }
+
+      .tab-panel.active {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      #brain-panel {
+        overflow-y: auto;
+        padding: 100px 40px 40px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      /* 2D Brain Panel Content */
+      .content-wrapper {
+        max-width: 1000px;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 48px;
+        padding: 40px;
+        margin: 0 auto;
+        height: 100%;
+      }
+
+      .dashboard-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 48px;
+        width: 100%;
+        align-items: center;
+      }
+
+      .diagram-container {
+        position: relative;
+        width: 100%;
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 40px;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+      }
+
+      .svg-wrapper {
+        position: relative;
+        width: 100%;
+        padding-bottom: 56%; /* 16:9 aspect ratio */
+      }
+
+      .svg-wrapper svg {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      /* Interactive Pins */
+      .pin {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        z-index: 10;
+      }
+
+      .pin-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background-color: var(--accent-red);
+        position: relative;
+      }
+
+      .pin-dot::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        background-color: inherit;
+        animation: ping 3s infinite cubic-bezier(0, 0, 0.2, 1);
+      }
+
+      @keyframes ping {
+        0% { transform: translate(-50%, -50%) scale(1); opacity: 0.3; }
+        100% { transform: translate(-50%, -50%) scale(2.5); opacity: 0; }
+      }
+
+      .pin-line {
+        width: 28px;
+        height: 1px;
+        background-color: var(--text-tertiary);
+        margin: 0 8px;
+      }
+
+      .pin-label {
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        background: var(--glass-bg);
+        padding: 4px 8px;
+        border-radius: 4px;
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+        color: var(--text-primary);
+        white-space: nowrap;
+      }
+
+      .pin.left-variant {
+        flex-direction: row-reverse;
+      }
+
+      /* Tooltip */
+      .pin-tooltip {
+        position: absolute;
+        top: calc(100% + 10px);
+        left: 50%;
+        transform: translateX(-50%) translateY(10px);
+        width: 200px;
+        background: rgba(255,255,255,0.92);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px;
+        opacity: 0;
+        pointer-events: none;
+        transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+        box-shadow: 0 8px 32px rgba(42,37,32,0.08);
+        z-index: 20;
+      }
+
+      .pin:hover .pin-tooltip {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+
+      .pin.left-variant .pin-tooltip {
+        left: auto;
+        right: 50%;
+        transform: translateX(50%) translateY(10px);
+      }
+
+      .pin.left-variant:hover .pin-tooltip {
+        transform: translateX(50%) translateY(0);
+      }
+
+      .tag {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+      }
+
+      /* Legend */
+      .legend-bar {
+        display: flex;
+        gap: 24px;
+        margin-top: 32px;
+        padding-top: 24px;
+        border-top: 1px solid var(--border);
+        justify-content: center;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 10px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+      }
+
+      .legend-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+      }
+
+      /* Cards */
+      .cards-container {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .glass-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 28px;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+        position: relative;
+        overflow: hidden;
+        cursor: pointer;
+      }
+
+      .glass-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 32px rgba(42,37,32,0.06);
+        border-color: var(--border-hover);
+      }
+
+      .card-accent-stripe {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 3px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      .glass-card:hover .card-accent-stripe {
+        opacity: 1;
+      }
+
+      /* Dashboard Tabs */
+      .dashboard-tabs {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .dashboard-tab {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px 20px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(10px);
+        width: 100%;
+        text-align: left;
+        font-family: inherit;
+        position: relative;
+        z-index: 100;
+        pointer-events: auto;
+      }
+
+      .dashboard-tab:hover {
+        border-color: var(--border-hover);
+        background: rgba(255,255,255,0.7);
+      }
+
+      .dashboard-tab-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: rgba(42,37,32,0.04);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .dashboard-tab-icon svg {
+        width: 16px;
+        height: 16px;
+        color: var(--text-primary);
+      }
+
+      .dashboard-tab-content {
+        flex: 1;
+      }
+
+      .dashboard-tab-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+
+      .dashboard-tab-desc {
+        font-size: 11px;
+        color: var(--text-secondary);
+        margin-top: 2px;
+      }
+
+      .card-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: rgba(42,37,32,0.04);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 16px;
+      }
+
+      .card-icon svg {
+        width: 20px;
+        height: 20px;
+        color: var(--text-primary);
+      }
+
+      .stat-number {
+        font-size: 32px;
+        font-weight: 300;
+        font-variant-numeric: tabular-nums;
+        margin: 12px 0 4px;
+        color: var(--text-primary);
+      }
+
+      /* Modal */
+      #detail-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 2000;
+        background: rgba(42,37,32,0.3);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+      }
+
+      #detail-modal.active {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .modal-card {
+        background: rgba(255,255,255,0.92);
+        border-radius: 18px;
+        padding: 36px 40px;
+        max-width: 480px;
+        width: 90%;
+        transform: translateY(20px);
+        transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+        position: relative;
+        box-shadow: 0 20px 60px rgba(42,37,32,0.1);
+      }
+
+      #detail-modal.active .modal-card {
+        transform: translateY(0);
+      }
+
+      .modal-close {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: rgba(42,37,32,0.04);
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s;
+      }
+
+      .modal-close:hover {
+        background: rgba(42,37,32,0.08);
+      }
+
+      .modal-close svg {
+        width: 14px;
+        height: 14px;
+        color: var(--text-primary);
+      }
+
+      /* 3D UI Overlay */
+      .ui-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 10;
+      }
+
+      .controls-container {
+        position: absolute;
+        bottom: 40px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 12px;
+        pointer-events: auto;
+        width: 100%;
+        max-width: 800px;
+        padding: 0 20px;
+        box-sizing: border-box;
+        z-index: 1001;
+      }
+
+      .control-btn {
+        background: rgba(42,37,32,0.04);
+        border: 1px solid rgba(42,37,32,0.1);
+        border-radius: 50px;
+        padding: 10px 20px;
+        font-family: 'Inter', sans-serif;
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+        color: var(--text-primary);
+        cursor: pointer;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        transition: all 0.2s ease;
+      }
+
+      .control-btn:hover {
+        background: rgba(42,37,32,0.08);
+      }
+
+      .control-btn.active {
+        background: rgba(180,75,70,0.1);
+        border-color: rgba(180,75,70,0.3);
+        color: var(--accent-red);
+      }
+
+      .info-panel {
+        position: absolute;
+        top: 80px;
+        right: 40px;
+        width: 320px;
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 28px;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        pointer-events: auto;
+        transform: translateX(20px);
+        opacity: 0;
+        transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+      }
+
+      .info-panel.visible {
+        transform: translateX(0);
+        opacity: 1;
+      }
+
+      /* 3D Hotspots */
+      .hotspot {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        pointer-events: auto;
+        cursor: pointer;
+        transform: translate(-50%, -50%);
+      }
+
+      .hotspot-dot {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        position: relative;
+      }
+
+      .hotspot-dot::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        background-color: inherit;
+        animation: ping 3s infinite cubic-bezier(0, 0, 0.2, 1);
+      }
+
+      .hotspot-label {
+        position: absolute;
+        left: 24px;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        background: rgba(255,255,255,0.7);
+        padding: 4px 8px;
+        border-radius: 4px;
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+        color: var(--text-primary);
+        white-space: nowrap;
+        opacity: 0;
+        transition: opacity 0.2s;
+        pointer-events: none;
+      }
+
+      .hotspot:hover .hotspot-label {
+        opacity: 1;
+      }
+
+      .pulse-canvas {
+        position: absolute;
+        bottom: 30px;
+        right: 40px;
+        width: 200px;
+        height: 60px;
+        pointer-events: none;
+        opacity: 0.6;
+      }
+      body:not([data-active-tab="brain3d"]) #ar-button {
+        display: none !important;
+      }
+      #ar-button {
+        left: 20px !important;
+        bottom: 20px !important;
+        width: auto !important;
+        transform: none !important;
+      }
+    </style>
+  </head>
+  <body data-active-tab="dashboard">
+    <nav id="tab-nav">
+      <button class="tab-btn active" data-tab="dashboard">Cognitive Dashboard</button>
+      <button class="tab-btn" data-tab="brain3d">Digital Brain</button>
+      <button class="tab-btn" data-tab="advanced">Advanced Mode</button>
+      <button class="tab-btn" data-tab="mri-analysis">MRI Analysis</button>
+    </nav>
+
+    <!-- Cognitive Dashboard Panel -->
+    <div id="dashboard-panel" class="tab-panel active">
+      <div class="content-wrapper">
+        <div class="dashboard-grid">
+          <div class="glass-card" style="margin: 0;">
+            <div class="subtitle" style="margin-bottom: 24px;">Cognitive Capability Dashboard</div>
+            
+            <div style="display: flex; flex-direction: column; gap: 32px; margin-top: 40px;">
+              <div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                  <span style="font-weight: 500;">Human Synthesis</span>
+                  <span id="human-stat" style="font-weight: 600; color: var(--accent-steel);">75%</span>
+                </div>
+                <div style="width: 100%; height: 8px; background: rgba(42,37,32,0.05); border-radius: 4px; overflow: hidden;">
+                  <div id="human-bar" style="width: 75%; height: 100%; background: var(--accent-steel); transition: width 0.5s ease;"></div>
+                </div>
+                <p style="margin-top: 8px; font-size: 12px;">Your independent cognitive effort and original thought generation.</p>
+              </div>
+
+              <div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                  <span style="font-weight: 500;">AI Delegation</span>
+                  <span id="ai-stat" style="font-weight: 600; color: var(--accent-red);">25%</span>
+                </div>
+                <div style="width: 100%; height: 8px; background: rgba(42,37,32,0.05); border-radius: 4px; overflow: hidden;">
+                  <div id="ai-bar" style="width: 25%; height: 100%; background: var(--accent-red); transition: width 0.5s ease;"></div>
+                </div>
+                <p style="margin-top: 8px; font-size: 12px;">Tasks and cognitive load offloaded to AI tools.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="dashboard-tabs">
+            <button class="dashboard-tab" id="btn-manual-effort">
+              <div class="dashboard-tab-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              </div>
+              <div class="dashboard-tab-content">
+                <div class="dashboard-tab-title">Log Manual Effort</div>
+                <div class="dashboard-tab-desc">Record your independent cognitive work.</div>
+              </div>
+            </button>
+
+            <button class="dashboard-tab" id="btn-simulate-ai">
+              <div class="dashboard-tab-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              </div>
+              <div class="dashboard-tab-content">
+                <div class="dashboard-tab-title">Simulate AI Usage</div>
+                <div class="dashboard-tab-desc">Observe the Cognitive Shadow.</div>
+              </div>
+            </button>
+
+            <button class="dashboard-tab" id="btn-import-glasses">
+              <div class="dashboard-tab-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h12"/><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"/><path d="M12 2v20"/></svg>
+              </div>
+              <div class="dashboard-tab-content">
+                <div class="dashboard-tab-title">Import AI Glasses</div>
+                <div class="dashboard-tab-desc">Sync real-time cognitive data.</div>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3D Brain Panel -->
+    <div id="brain3d-panel" class="tab-panel">
+      <div id="brain3d-root" style="width: 100%; height: 100%;"></div>
+      <div class="ui-overlay">
+        <div class="info-panel" id="brain-info">
+          <div class="subtitle">Human Brain</div>
+          <h2 id="brain-title">Cerebral Cortex</h2>
+          <p id="brain-desc">The outer layer of neural tissue of the cerebrum of the brain in humans and other mammals.</p>
+        </div>
+        <div class="controls-container">
+          <button class="control-btn" id="btn-explode">Explode View</button>
+          <button class="control-btn" id="btn-xray-brain">Translucent Mode</button>
+          <button class="control-btn" id="btn-neurons">Human Activity</button>
+          <button class="control-btn" id="btn-ai-shadow">AI Shadow</button>
+          <button class="control-btn" id="btn-reset-brain">Reset View</button>
+          <button class="control-btn" id="btn-ios-ar" style="display: none; background: rgba(180,75,70,0.1); border-color: rgba(180,75,70,0.3); color: var(--accent-red);">View in AR (iOS)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Advanced Mode Panel -->
+    <div id="advanced-panel" class="tab-panel">
+      <div id="tribe-root" style="width: 100%; height: 100%;"></div>
+    </div>
+
+    <!-- MRI Analysis Panel -->
+    <div id="mri-analysis-panel" class="tab-panel">
+      <div id="mri-root" style="width: 100%; height: 100%;"></div>
+    </div>
+
+    <!-- Effort Log Modal -->
+    <div id="effort-modal" style="position: fixed; inset: 0; z-index: 2000; background: rgba(42,37,32,0.3); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s ease;">
+      <div class="modal-card" style="background: rgba(255,255,255,0.92); border-radius: 18px; padding: 36px 40px; max-width: 480px; width: 90%; transform: translateY(20px); transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1); position: relative; box-shadow: 0 20px 60px rgba(42,37,32,0.1);">
+        <button class="modal-close" onclick="closeEffortModal()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <div class="subtitle" id="effort-modal-subtitle">Cognitive Gatekeeper</div>
+        <h2 id="effort-modal-title">Log Manual Effort</h2>
+        <p style="margin-bottom: 16px;">What cognitive effort did you expend before using AI? Briefly describe your independent work.</p>
+        <textarea id="effort-input" rows="4" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: rgba(255,255,255,0.5); font-family: 'Inter', sans-serif; font-size: 13px; resize: none; margin-bottom: 20px; outline: none;"></textarea>
+        <button onclick="submitEffort()" style="background: var(--text-primary); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 500; cursor: pointer; width: 100%; transition: background 0.2s;">Log Effort</button>
+      </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div id="detail-modal">
+      <div class="modal-card">
+        <button class="modal-close" onclick="closeModal()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <div class="subtitle" id="modal-subtitle">Anatomy Detail</div>
+        <h2 id="modal-title">Frontal Lobe</h2>
+        <p id="modal-body">The frontal lobe is the largest of the four major lobes of the brain in mammals, and is located at the front of each cerebral hemisphere. It is involved in motor function, problem solving, spontaneity, memory, language, initiation, judgement, impulse control, and social and sexual behavior.</p>
+      </div>
+    </div>
+
+    <script>
+      // Global Cognitive State
+      window.cognitiveState = {
+        human: 75,
+        ai: 25,
+        humanLobe: 'Frontal Lobe',
+        aiLobe: 'Temporal Lobe'
+      };
+
+      const lobes = ['Frontal Lobe', 'Parietal Lobe', 'Temporal Lobe', 'Occipital Lobe', 'Cerebellum'];
+
+      function updateDashboardStats() {
+        document.getElementById('human-stat').innerText = `${window.cognitiveState.human}%`;
+        document.getElementById('human-bar').style.width = `${window.cognitiveState.human}%`;
+        
+        document.getElementById('ai-stat').innerText = `${window.cognitiveState.ai}%`;
+        document.getElementById('ai-bar').style.width = `${window.cognitiveState.ai}%`;
+
+        // Dispatch event for 3D brain to update
+        window.dispatchEvent(new CustomEvent('cognitiveStateChanged', {
+          detail: window.cognitiveState
+        }));
+      }
+
+      function openEffortModal() {
+        document.getElementById('effort-input').value = '';
+        document.getElementById('effort-modal').style.opacity = '1';
+        document.getElementById('effort-modal').style.pointerEvents = 'auto';
+        document.querySelector('#effort-modal .modal-card').style.transform = 'translateY(0)';
+      }
+
+      function closeEffortModal() {
+        document.getElementById('effort-modal').style.opacity = '0';
+        document.getElementById('effort-modal').style.pointerEvents = 'none';
+        document.querySelector('#effort-modal .modal-card').style.transform = 'translateY(20px)';
+      }
+
+      function submitEffort() {
+        const effortText = document.getElementById('effort-input').value;
+        if (effortText.trim() !== '') {
+          // Increase human level, decrease AI level
+          window.cognitiveState.human = Math.min(100, window.cognitiveState.human + 10);
+          window.cognitiveState.ai = Math.max(0, window.cognitiveState.ai - 10);
+          window.cognitiveState.humanLobe = lobes[Math.floor(Math.random() * lobes.length)];
+          updateDashboardStats();
+          closeEffortModal();
+        }
+      }
+
+      function simulateAIUsage() {
+        // Increase AI level, decrease human level
+        window.cognitiveState.ai = Math.min(100, window.cognitiveState.ai + 15);
+        window.cognitiveState.human = Math.max(0, window.cognitiveState.human - 15);
+        window.cognitiveState.aiLobe = lobes[Math.floor(Math.random() * lobes.length)];
+        updateDashboardStats();
+      }
+
+      function importAIGlasses() {
+        alert("AI Glasses integration initiated. Please ensure your device is in pairing mode.");
+      }
+
+      // Tab Switching Logic
+      const tabBtns = document.querySelectorAll('.tab-btn');
+      const tabPanels = document.querySelectorAll('.tab-panel');
+      let brainLoaded = false;
+
+      document.getElementById('btn-manual-effort').addEventListener('click', openEffortModal);
+      document.getElementById('btn-simulate-ai').addEventListener('click', simulateAIUsage);
+      document.getElementById('btn-import-glasses').addEventListener('click', importAIGlasses);
+
+      tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          // Remove active class from all
+          tabBtns.forEach(b => b.classList.remove('active'));
+          tabPanels.forEach(p => p.classList.remove('active'));
+
+          // Add active class to clicked
+          btn.classList.add('active');
+          const targetId = btn.getAttribute('data-tab') + '-panel';
+          document.getElementById(targetId).classList.add('active');
+          document.body.setAttribute('data-active-tab', btn.getAttribute('data-tab'));
+          window.dispatchEvent(new CustomEvent('viewModeChanged', { detail: btn.getAttribute('data-tab') }));
+
+          // Lazy load 3D scenes
+          if (btn.getAttribute('data-tab') === 'brain3d' && !brainLoaded) {
+            brainLoaded = true;
+            import('/src/brain3d.js');
+          }
+
+          // Trigger resize for Three.js
+          setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
+        });
+      });
+
+      // Modal Logic
+      const modalData = {
+        frontal: { title: 'Frontal Lobe', subtitle: 'Motor & Cognition', body: 'The frontal lobe is the largest of the four major lobes of the brain in mammals, and is located at the front of each cerebral hemisphere. It is involved in motor function, problem solving, spontaneity, memory, language, initiation, judgement, impulse control, and social and sexual behavior.' },
+        parietal: { title: 'Parietal Lobe', subtitle: 'Sensory Processing', body: 'The parietal lobe is positioned above the temporal lobe and behind the frontal lobe and central sulcus. It integrates sensory information among various modalities, including spatial sense and navigation (proprioception), the main sensory receptive area for the sense of touch in the somatosensory cortex.' },
+        temporal: { title: 'Temporal Lobe', subtitle: 'Auditory & Memory', body: 'The temporal lobe is located beneath the lateral fissure on both cerebral hemispheres of the mammalian brain. It is involved in processing sensory input into derived meanings for the appropriate retention of visual memory, language comprehension, and emotion association.' },
+        neurons: { title: '86 Billion Neurons', subtitle: 'Cellular Network', body: 'The human brain contains approximately 86 billion neurons. These specialized cells transmit information to other nerve cells, muscle, or gland cells. They are the fundamental units of the brain and nervous system.' },
+        synapses: { title: '100 Trillion Synapses', subtitle: 'Neural Connections', body: 'Synapses are the junctions where neurons pass signals to each other. A single neuron can have thousands of synapses, resulting in an estimated 100 trillion synaptic connections in the human brain, forming a vastly complex computational network.' }
+      };
+
+      function openModal(id) {
+        const data = modalData[id];
+        if (data) {
+          document.getElementById('modal-title').innerText = data.title;
+          document.getElementById('modal-subtitle').innerText = data.subtitle;
+          document.getElementById('modal-body').innerText = data.body;
+          document.getElementById('detail-modal').classList.add('active');
+        }
+      }
+
+      function closeModal() {
+        document.getElementById('detail-modal').classList.remove('active');
+      }
+
+      // Close modal on background click
+      document.getElementById('detail-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'detail-modal') closeModal();
+      });
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- iOS AR Fallback (Hidden, used only for launching AR Quick Look) -->
+    <model-viewer 
+      id="ios-ar-viewer"
+      src="https://modelviewer.dev/shared-assets/models/Astronaut.glb"
+      ios-src="https://modelviewer.dev/shared-assets/models/Astronaut.usdz"
+      ar
+      ar-modes="quick-look"
+      style="display: none;">
+    </model-viewer>
+    <script>
+      // Detect iOS and show the AR button instead of blocking the screen
+      if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
+        const iosArBtn = document.getElementById('btn-ios-ar');
+        if (iosArBtn) {
+          iosArBtn.style.display = 'inline-block';
+          iosArBtn.addEventListener('click', () => {
+            const viewer = document.getElementById('ios-ar-viewer');
+            if (viewer && viewer.activateAR) {
+              viewer.activateAR();
+            }
+          });
+        }
+      }
+    </script>
+  </body>
+</html>
+
